@@ -1,140 +1,141 @@
 import streamlit as st
-import librosa
-import numpy as np
-from dtw import dtw
-import pyaudio
-import wave
-import os
+import requests
+import datetime
+from pathlib import Path
+from io import BytesIO
+from pydub import AudioSegment
+from audiorecorder import audiorecorder
+from pronunciation_evaluator import evaluate_pronunciation
 
-def record_audio(output_dir="audio/user_audio", filename="user_bismillah.wav"):
-    CHUNK = 1024
-    FORMAT = pyaudio.paInt16
-    CHANNELS = 1
-    RATE = 16000
-    RECORD_SECONDS = 9
-    OUTPUT_PATH = os.path.join(output_dir, filename)
+# === Константы ===
+BACKEND_URL = "http://127.0.0.1:5000"
+AUDIO_PATH = "audio/etalon/letters"
+USER_RECORDINGS = "audio/user"
 
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+# === Состояние ===
+for key in ["user_id", "level", "gender", "name", "authenticated"]:
+    if key not in st.session_state:
+        st.session_state[key] = None if key != "authenticated" else False
 
-    audio = pyaudio.PyAudio()
-    stream = audio.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK)
-    st.write("Говори 'Bismillahir Rahmanir Rahim' сейчас!")
-    frames = []
+st.set_page_config(page_title="Обучение арабскому алфавиту", layout="centered")
+st.title("🕌 Обучение арабскому алфавиту")
 
-    for i in range(0, int(RATE / CHUNK * RECORD_SECONDS)):
-        data = stream.read(CHUNK)
-        frames.append(data)
+# === Вход / Регистрация ===
+if not st.session_state.authenticated:
+    tab1, tab2 = st.tabs(["🔐 Вход", "📝 Регистрация"])
 
-    stream.stop_stream()
-    stream.close()
-    audio.terminate()
+    with tab1:
+        st.subheader("Вход")
+        email = st.text_input("Email", key="login_email")
+        password = st.text_input("Пароль", type="password", key="login_password")
 
-    wf = wave.open(OUTPUT_PATH, 'wb')
-    wf.setnchannels(CHANNELS)
-    wf.setsampwidth(audio.get_sample_size(FORMAT))
-    wf.setframerate(RATE)
-    wf.writeframes(b''.join(frames))
-    wf.close()
+        if st.button("Войти", key="login_button"):
+            headers = {"Content-Type": "application/json"}
+            response = requests.post(
+                f"{BACKEND_URL}/login",
+                json={"email": email, "password": password},
+                headers=headers
+            )
 
-def preprocess_audio(audio, sr):
-    audio, _ = librosa.effects.trim(audio, top_db=20)
-    audio = librosa.util.normalize(audio)
-    return audio
+            try:
+                res = response.json()
+            except Exception:
+                st.error("⚠️ Сервер вернул некорректный JSON.")
+                res = {}
 
-st.title("Анализ произношения 'Bismillahir Rahmanir Rahim'")
+            if response.status_code == 200:
+                required = ["user_id", "level", "gender", "name"]
+                if all(k in res for k in required):
+                    st.session_state.user_id = res["user_id"]
+                    st.session_state.level = res["level"]
+                    st.session_state.gender = res["gender"]
+                    st.session_state.name = res["name"]
+                    st.session_state.authenticated = True
+                    st.rerun()
+                else:
+                    st.error("⚠️ Ответ от сервера неполный. Проверь backend.")
+            else:
+                st.error(f"Ошибка сервера: {response.status_code}")
 
-if st.button("Записать произношение"):
-    record_audio()
-    user_file = "audio/user_audio/user_bismillah.wav"
-    etalon_dir = "audio/etalon"
+    with tab2:
+        st.subheader("Регистрация")
+        name = st.text_input("Имя", key="register_name")
+        surname = st.text_input("Фамилия", key="register_surname")
+        gender = st.radio("Пол", ["male", "female"], format_func=lambda x: "Мужской" if x == "male" else "Женский", key="register_gender")
+        reg_email = st.text_input("Email для регистрации", key="register_email")
+        reg_password = st.text_input("Пароль", type="password", key="register_password")
 
-    user, sr = librosa.load(user_file, sr=16000)
-    user = preprocess_audio(user, sr)
-    segments = librosa.effects.split(user, top_db=15)
-    parts = ["Bism", "Allah", "Rahman", "Rahim"]
+        if st.button("Зарегистрироваться", key="register_button"):
+            headers = {"Content-Type": "application/json"}
+            data = {
+                "name": name,
+                "surname": surname,
+                "gender": gender,
+                "email": reg_email,
+                "password": reg_password
+            }
+            response = requests.post(f"{BACKEND_URL}/register", json=data, headers=headers)
+            try:
+                res = response.json()
+                if response.status_code == 200:
+                    st.success("✅ Успешно зарегистрирован! Теперь войдите.")
+                else:
+                    st.error(res.get("message", "Ошибка регистрации"))
+            except Exception:
+                st.error(f"Ошибка сервера: {response.status_code}")
 
-    st.write(f"Найдено сегментов: {len(segments)}")
+# === Основной интерфейс ===
+if st.session_state.authenticated and st.session_state.level == "beginner":
+    st.subheader("📖 Уровень: Начинающий — Буквы арабского алфавита")
 
-    etalon_files = [f for f in os.listdir(etalon_dir) if f.endswith(".wav")]
-    min_distance_total = float('inf')
-    best_etalon = None
-    best_segments = None
-    best_feedback = []
+    letters = [
+        "ا", "ب", "ت", "ث", "ج", "ح", "خ", "د", "ذ", "ر", "ز", "س", "ش", "ص",
+        "ض", "ط", "ظ", "ع", "غ", "ف", "ق", "ك", "ل", "م", "ن", "ه", "و", "ي"
+    ]
 
-    for etalon_file in etalon_files:
-        etalon_path = os.path.join(etalon_dir, etalon_file)
-        etalon, sr = librosa.load(etalon_path, sr=16000)
-        etalon = preprocess_audio(etalon, sr)
-        
-        if len(etalon) > len(user):
-            etalon = etalon[:len(user)]
-        elif len(etalon) < len(user):
-            etalon = np.pad(etalon, (0, len(user) - len(etalon)), mode='constant')
-        
-        etalon_segments = librosa.effects.split(etalon, top_db=15)
+    for i, letter in enumerate(letters):
+        with st.expander(f"📘 Буква: {letter}"):
+            etalon_path = Path(AUDIO_PATH) / st.session_state.gender / f"{i+1}.mp3"
+            st.audio(str(etalon_path))
 
-        if len(segments) == len(etalon_segments):
-            total_distance = 0
-            segment_distances = []
-            feedback = []
-            for i, (user_seg, etalon_seg) in enumerate(zip(segments, etalon_segments)):
-                user_part = user[user_seg[0]:user_seg[1]]
-                etalon_part = etalon[etalon_seg[0]:etalon_seg[1]]
-                
-                mfcc_user = librosa.feature.mfcc(y=user_part, sr=sr, n_mfcc=13)
-                mfcc_etalon = librosa.feature.mfcc(y=etalon_part, sr=sr, n_mfcc=13)
-                
-                # Исправленный DTW
-                dtw_result = dtw(mfcc_user.T, mfcc_etalon.T, distance_only=True)
-                distance = dtw_result.distance
-                total_distance += distance
-                segment_distances.append(distance)
-                if distance > 50 and i < len(parts):
-                    feedback.append(f"Проверьте часть '{parts[i]}' (расстояние: {distance:.2f})")
+            ts = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+            letter_id = i + 1
+            filename = f"user_{st.session_state.user_id}_letter_{letter_id}_{ts}.wav"
+            wav_path = Path(USER_RECORDINGS) / filename
+            wav_path.parent.mkdir(parents=True, exist_ok=True)
 
-            if total_distance < min_distance_total:
-                min_distance_total = total_distance
-                best_etalon = etalon_file
-                best_segments = segment_distances
-                best_feedback = feedback
+            audio = audiorecorder(key=f"rec-{i}")
+            if audio:
+                buffer = BytesIO()
+                audio.export(buffer, format="wav")
+                with open(wav_path, "wb") as f:
+                    f.write(buffer.getvalue())
 
-    st.write(f"Ближайший эталон: {best_etalon} с общим расстоянием {min_distance_total:.2f}")
-    if best_segments:
-        for i, dist in enumerate(best_segments):
-            part_name = parts[i] if i < len(parts) else f"Сегмент {i+1}"
-            st.write(f"Расстояние для '{part_name}': {dist:.2f}")
+                st.audio(str(wav_path))
+                st.success("✅ Запись сохранена")
 
-    for etalon_file in etalon_files:
-        etalon_path = os.path.join(etalon_dir, etalon_file)
-        etalon, sr = librosa.load(etalon_path, sr=16000)
-        etalon = preprocess_audio(etalon, sr)
-        if len(etalon) > len(user):
-            etalon = etalon[:len(user)]
-        elif len(etalon) < len(user):
-            etalon = np.pad(etalon, (0, len(user) - len(etalon)), mode='constant')
-        mfcc_etalon = librosa.feature.mfcc(y=etalon, sr=sr, n_mfcc=13)
-        mfcc_user = librosa.feature.mfcc(y=user, sr=sr, n_mfcc=13)
-        dtw_result = dtw(mfcc_user.T, mfcc_etalon.T, distance_only=True)
-        distance = dtw_result.distance
-        st.write(f"Расстояние до {etalon_file} (вся фраза): {distance}")
+                score, feedback = evaluate_pronunciation(str(wav_path), str(etalon_path))
+                if score is not None:
+                    st.markdown(f"### 🎯 Точность: **{score}%**")
+                    st.info(f"💬 Обратная связь: {feedback}")
+                else:
+                    st.error(feedback)
+elif st.session_state.authenticated and st.session_state.user_id:
+    st.sidebar.subheader("📈 Прогресс")
+    if st.sidebar.button("Показать дашборд"):
+        # Загрузка прогресса
+        try:
+            response = requests.get(f"{BACKEND_URL}/progress/{st.session_state.user_id}")
+            if response.status_code == 200:
+                data = response.json()
+                st.subheader("📊 Ваш прогресс")
+                st.markdown(f"**Всего записей:** {data['total']}")
+                st.markdown(f"**Средняя точность:** {round(data['average'], 2)}%")
 
-    if len(segments) < 4:
-        st.error("Недостаточно сегментов. Возможно, фраза неполная.")
-    elif min_distance_total < 200:
-        st.success("Произношение похоже на эталон!")
-    elif min_distance_total < 300 and len(best_feedback) <= 1:
-        st.warning("Произношение близкое, но есть небольшие отличия:")
-        for fb in best_feedback:
-            st.write(fb)
-    else:
-        st.error("Есть явные отличия:")
-        for fb in best_feedback:
-            st.write(fb)
-
-if st.button("Прослушать все эталонные записи"):
-    etalon_dir = "audio/etalon"
-    for etalon_file in os.listdir(etalon_dir):
-        if etalon_file.endswith(".wav"):
-            st.write(f"Эталон: {etalon_file}")
-            st.audio(os.path.join(etalon_dir, etalon_file))
+                st.markdown("### 📝 История")
+                for r in data["history"]:
+                    st.markdown(f"• {r['item']} — {r['score']}% — *{r['timestamp']}*")
+            else:
+                st.error("Не удалось загрузить прогресс.")
+        except Exception as e:
+            st.error(f"Ошибка: {e}")
