@@ -1,25 +1,27 @@
 # 🗣 Arabic Pronunciation Training Web App
 
-Это веб-приложение создано для помощи студентам в изучении и тренировке произношения арабских букв и фраз, таких как "بسم الله الرحمن الرحيم" (Бисмилляхир Рохмаанир Рохиим).
+This web application helps students practice and improve their Arabic pronunciation, including individual letters and phrases such as "بسم الله الرحمن الرحيم" (Bismillāhir-Raḥmānir-Raḥīm).
 
-## 🚀 Функциональность
+🌐 **Live Demo:** [http://34.107.44.238](http://34.107.44.238)
 
-- 📚 **Уровень Beginner** — тренировка произношения 28 букв арабского алфавита.
-- 📗 **Уровень Intermediate** — тренировка произношения фразы "Бисмиллях".
-- 🧠 **Оценка произношения** — система сравнивает пользовательскую запись с эталонными аудиофайлами.
-- 💬 **Обратная связь** — на основе точности произношения.
-- 📈 **Прогресс** — количество записей и средняя точность.
-- 👤 **Регистрация / Вход** — хранение результатов в базе данных.
-- 🌐 **Мультиязычность** — интерфейс на русском и английском.
+## 🚀 Features
 
-## 🗂 Структура проекта
+- 📚 **Beginner Level** — Train pronunciation of all 28 Arabic alphabet letters.
+- 📗 **Intermediate Level** — Practice the full phrase "Bismillah".
+- 🧠 **Pronunciation Evaluation** — Your recording is compared with reference audio files.
+- 💬 **Feedback System** — Get feedback based on pronunciation accuracy.
+- 📈 **Progress Tracking** — Track number of recordings and average accuracy.
+- 👤 **User Accounts** — Register, login, and store individual progress in a database.
+- 🌐 **Multilingual UI** — Interface available in English and Russian.
+
+## 🗂 Project Structure
 
 ```bash
-├── interface.py              # Streamlit-интерфейс
-├── backend.py                # Flask-сервер
-├── pronunciation_evaluator.py    # Оценка букв
-├── phrase_evaluator.py           # Оценка фраз
-├── intermediate_module.py        # Модуль для фразы Бисмиллях
+├── interface.py                  # Streamlit interface (frontend)
+├── backend.py                    # Flask backend (API & database)
+├── pronunciation_evaluator.py   # Letter-level evaluation logic
+├── phrase_evaluator.py          # Phrase-level evaluation logic
+├── intermediate_module.py       # Module for "Bismillah" practice
 ├── requirements.txt
 ├── audio/
 │   ├── etalon/
@@ -29,5 +31,5 @@
 │   │   └── phrases/
 │   │       ├── male/
 │   │       └── female/
-│   └── user/                  # Записи пользователей
-└── .session.json              # Локальный файл авторизации
+│   └── user/                    # User recordings
+└── .session.json                # Local session data (login state)
