@@ -23,7 +23,7 @@ def feedback_message(score, lang="en"):
         else:
             return "Try again. Focus on the sounds."
 
-def evaluate_pronunciation(user_audio_path, etalon_audio_path, lang="en"):
+def evaluate_phrase_pronunciation(user_audio_path, etalon_audio_path, lang="en"):
     try:
         y_user, sr_user = librosa.load(user_audio_path, sr=None)
         y_etalon, sr_etalon = librosa.load(etalon_audio_path, sr=None)
@@ -39,7 +39,7 @@ def evaluate_pronunciation(user_audio_path, etalon_audio_path, lang="en"):
         mfcc_etalon = librosa.feature.mfcc(y=y_etalon, sr=sr, n_mfcc=13)
 
         distance, _ = fastdtw(mfcc_user.T, mfcc_etalon.T, dist=euclidean)
-        score = round(100 * np.exp(-distance / 30000), 2)
+        score = round(100 * np.exp(-distance / 150000), 2)
         feedback = feedback_message(score, lang)
 
         return score, feedback
