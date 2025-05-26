@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+*.log
+
+# Virtual environment
+venv/
+.env/
+.envrc
+.venv/
+
+# Streamlit
+.streamlit/config.toml
+.session.json
+
+# Audio & user recordings
+audio/user/
+audio/__temp__/
+*.wav
+*.mp3
+
+# VS Code / IDEs
+.vscode/
+.idea/
+*.swp
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Pytest / cache
+.pytest_cache/
+.cache/
